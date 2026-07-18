@@ -340,8 +340,8 @@ template <int vdr> static __device__ __forceinline__ float vec_dot_q2_0_q8_1_imp
 
     const float2 ds8f = __half22float2(ds8);
 
-    // second part effectively subtracts 2 from each quant value; each call covers 4*vdr of the QI8_1 q8 ints
-    return d2 * (sumi * ds8f.x - (2.0f*4*vdr/QI8_1) * ds8f.y);
+    // second part effectively subtracts 1 from each quant value (ternary for Bonsai); each call covers 4*vdr of the QI8_1 q8 ints
+    return d2 * (sumi * ds8f.x - (1.0f*4*vdr/QI8_1) * ds8f.y);
 }
 
 #define VDR_Q2_1_Q8_1_MMVQ 1
@@ -1056,6 +1056,51 @@ static __device__ __forceinline__ float vec_dot_q2_0_q8_1(
     }
 
     return vec_dot_q2_0_q8_1_impl<VDR_Q2_0_Q8_1_MMVQ>(v, u, bq2_0->d, bq8_1->ds);
+}
+
+// Ternary variant for Bonsai: (c-1) instead of (c-2)
+#define VDR_Q2_0_Q8_1_TERNARY_MMVQ 1
+#define VDR_Q2_0_Q8_1_TERNARY_MMQ  2
+
+template <int vdr> static __device__ __forceinline__ float vec_dot_q2_0_ternary_q8_1_impl(
+    const int * v, const int * u, const float & d2, const half2 & ds8) {
+
+    int sumi = 0;
+
+#pragma unroll
+    for (int i = 0; i < vdr; ++i) {
+#pragma unroll
+        for (int p = 0; p < 4; ++p) {
+            const int vi = (v[i] >> (2*p)) & 0x03030303;
+
+            sumi = ggml_cuda_dp4a(vi, u[4*i+p], sumi);
+        }
+    }
+
+    const float2 ds8f = __half22float2(ds8);
+
+    // Ternary: subtract 1 instead of 2
+    return d2 * (sumi * ds8f.x - (1.0f*4*vdr/QI8_1) * ds8f.y);
+}
+
+static __device__ __forceinline__ float vec_dot_q2_0_ternary_q8_1(
+    const void * __restrict__ vbq, const block_q8_1 * __restrict__ bq8_1, const int & kbx, const int & iqs) {
+
+    const block_q2_0 * bq2_0 = (const block_q2_0 *) vbq + kbx;
+
+    int v[VDR_Q2_0_Q8_1_TERNARY_MMVQ];
+    int u[4*VDR_Q2_0_Q8_1_TERNARY_MMVQ];
+
+#pragma unroll
+    for (int i = 0; i < VDR_Q2_0_Q8_1_TERNARY_MMVQ; ++i) {
+        v[i] = get_int_b2(bq2_0->qs, iqs + i);
+#pragma unroll
+        for (int p = 0; p < 4; ++p) {
+            u[4*i+p] = get_int_b4(bq8_1->qs, 2*p + iqs + i);
+        }
+    }
+
+    return vec_dot_q2_0_ternary_q8_1_impl<VDR_Q2_0_Q8_1_TERNARY_MMVQ>(v, u, bq2_0->d, bq8_1->ds);
 }
 
 static __device__ __forceinline__ float vec_dot_q2_1_q8_1(

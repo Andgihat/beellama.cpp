@@ -37,6 +37,7 @@ static std::string llama_model_ftype_name(llama_ftype ftype) {
         case LLAMA_FTYPE_MOSTLY_F16:      return "F16";
         case LLAMA_FTYPE_MOSTLY_BF16:     return "BF16";
         case LLAMA_FTYPE_MOSTLY_Q1_0:     return "Q1_0";
+
         case LLAMA_FTYPE_MOSTLY_Q4_0:     return "Q4_0";
         case LLAMA_FTYPE_MOSTLY_Q4_1:     return "Q4_1";
         case LLAMA_FTYPE_MOSTLY_Q5_0:     return "Q5_0";
@@ -1223,6 +1224,7 @@ struct ggml_tensor * llama_model_loader::create_tensor(
         const int64_t tid = gguf_find_tensor(metadata, tn.str().c_str());
         if (tid != -1) {
             type = gguf_get_tensor_type(metadata, tid);
+
         }
 
         // for tensors that are not required some of the dimensions can be invalid:

@@ -854,6 +854,24 @@ void dequantize_row_q2_0(const block_q2_0 * GGML_RESTRICT x, float * GGML_RESTRI
     }
 }
 
+void dequantize_row_q2_0_ternary(const block_q2_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
+    static const int qk = QK2_0;
+
+    assert(k % qk == 0);
+
+    const int nb = k / qk;
+
+    for (int i = 0; i < nb; i++) {
+        const float d = GGML_FP16_TO_FP32(x[i].d);
+
+        for (int j = 0; j < qk; ++j) {
+            const int32_t q = (x[i].qs[j % (qk/4)] >> (2*(j / (qk/4)))) & 0x03;
+
+            y[i*qk + j] = (q - 1)*d;
+        }
+    }
+}
+
 void dequantize_row_q2_1(const block_q2_1 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
     static const int qk = QK2_1;
 

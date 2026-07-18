@@ -429,7 +429,7 @@ extern "C" {
         GGML_TYPE_MXFP4   = 39, // MXFP4 (1 block)
         GGML_TYPE_NVFP4   = 40, // NVFP4 (4 blocks, E4M3 scale)
         GGML_TYPE_Q1_0    = 41,
-        GGML_TYPE_TURBO3_0 = 42, // TurboQuant 3-bit KV cache: 2-bit PolarQuant + 1-bit QJL
+        GGML_TYPE_Q2_0    = 42, // Standard Q2_0 (also used for ternary Bonsai)
         GGML_TYPE_TURBO4_0 = 43, // TurboQuant 4-bit KV cache: 3-bit PolarQuant + 1-bit QJL
         GGML_TYPE_TURBO2_0 = 44, // TurboQuant 2-bit KV cache: 2-bit PolarQuant, no QJL
         GGML_TYPE_TURBO3_TCQ = 45, // TurboQuant 3-bit KV cache: TCQ (Trellis-Coded Quantization)
@@ -440,10 +440,11 @@ extern "C" {
         GGML_TYPE_Q6_1    = 50,
         GGML_TYPE_Q3_0    = 51,
         GGML_TYPE_Q3_1    = 52,
-        GGML_TYPE_Q2_0    = 53,
+        GGML_TYPE_Q2_0_B  = 53, // BeeLlama native Q2_0
         GGML_TYPE_Q2_1    = 54,
         GGML_TYPE_TURBO4_TCQ = 55, // TurboQuant 4-bit KV cache: TCQ (k=4, L=10, 1024 states)
-        GGML_TYPE_COUNT   = 56,
+        GGML_TYPE_TURBO3_0 = 56, // TurboQuant 3-bit KV cache (moved from 42)
+        GGML_TYPE_COUNT   = 57,
     };
 
     // precision
