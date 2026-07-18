@@ -615,11 +615,10 @@ void ggml_vec_dot_q2_0_ternary_q8_0_generic(int n, float * GGML_RESTRICT s, size
 }
 
 void ggml_vec_dot_q2_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
-    const int qk = QK8_0;
+    const int qk = QK2_0;
     const int nb = n / qk;
 
     assert(n % qk == 0);
-    assert(qk == QK2_0);
     assert(nrc == 1);
     UNUSED(nrc);
     UNUSED(bx);
@@ -631,16 +630,32 @@ void ggml_vec_dot_q2_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, c
 
     float sumf = 0.0f;
 
-    for (int ib = 0; ib < nb; ++ib) {
-        int sumi = 0;
+    for (int i = 0; i < nb; i++) {
+        const float d0 = GGML_CPU_FP16_TO_FP32(x[i].d);
 
-        for (int j = 0; j < qk; ++j) {
-            const int32_t q = ((x[ib].qs[j % (qk/4)] >> (2*(j / (qk/4)))) & 0x03) - 2;
+        float sumi = 0.0f;
 
-            sumi += q * y[ib].qs[j];
+        for (int k = 0; k < 4; k++) {
+            const block_q8_0 * GGML_RESTRICT yb = &y[i * 4 + k];
+            const float d1 = GGML_CPU_FP16_TO_FP32(yb->d);
+            int sumi_block = 0;
+
+            const uint8_t * GGML_RESTRICT qs = &x[i].qs[k * 8];
+            const int8_t  * GGML_RESTRICT qy = yb->qs;
+
+            for (int b = 0; b < 8; ++b) {
+                const uint8_t byte = qs[b];
+                // Extract 4 two-bit values, map {0,1,2,3} -> {-1,0,1,2}
+                sumi_block += ((int)((byte >> 0) & 3) - 1) * qy[b*4 + 0];
+                sumi_block += ((int)((byte >> 2) & 3) - 1) * qy[b*4 + 1];
+                sumi_block += ((int)((byte >> 4) & 3) - 1) * qy[b*4 + 2];
+                sumi_block += ((int)((byte >> 6) & 3) - 1) * qy[b*4 + 3];
+            }
+
+            sumi += d1 * sumi_block;
         }
 
-        sumf += (GGML_CPU_FP16_TO_FP32(x[ib].d) * GGML_CPU_FP16_TO_FP32(y[ib].d)) * sumi;
+        sumf += d0 * sumi;
     }
 
     *s = sumf;

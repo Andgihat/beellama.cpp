@@ -127,8 +127,9 @@ typedef sycl::half2 ggml_half2;
 #define QI3_1 (QK3_1 / (4 * QR3_1))
 #define QR3_1 4
 
-#define QI2_0 (QK2_0 / (4 * QR2_0))
-#define QR2_0 4
+// PrismML/Bonsai Q2_0: QI2_0 must be 4 (32-element chunks per 128-element block)
+#define QI2_0 (QK2_0 / 32)
+#define QR2_0 1
 
 #define QI2_1 (QK2_1 / (4 * QR2_1))
 #define QR2_1 4
@@ -301,10 +302,13 @@ typedef struct {
 } block_q3_1;
 static_assert(sizeof(block_q3_1) == 2 * sizeof(ggml_half) + QK3_1 / 8 + QK3_1 / 4, "wrong q3_1 block size/padding");
 
-// 2-bit: 2-bit planes in qs (byte j holds elements j, j+8, j+16, j+24)
-#define QK2_0 32
+// 2-bit, PrismML/Bonsai layout: sequential packing, element i at byte i/4,
+// bits (i%4)*2. Code c in {0,1,2,3} maps to symbol (c - 1) in {-1,0,+1,+2}.
+// NOTE: replaces BeeLlama's native planar Q2_0 (byte j held elements j, j+8,
+// j+16, j+24) — no model in use relies on that format.
+#define QK2_0 128
 typedef struct {
-    ggml_half d;             // delta
+    ggml_half d;             // delta (scale)
     uint8_t   qs[QK2_0 / 4]; // quants, two bits each
 } block_q2_0;
 static_assert(sizeof(block_q2_0) == sizeof(ggml_half) + QK2_0 / 4, "wrong q2_0 block size/padding");

@@ -151,20 +151,24 @@ static __device__ __forceinline__ void dequantize_q3_1(const void * vx, const in
     v.y = (v.y * dm.x) + dm.y;
 }
 
-// Now uses ternary formula (c-1)*d for Q2_0 = 42 (standard Q2_0 / Bonsai ternary)
+// PrismML/Bonsai Q2_0: sequential packing, 4 elements per byte.
+// Code c in {0,1,2,3} maps to symbol s = c - 1 in {-1, 0, +1, +2}.
 static __device__ __forceinline__ void dequantize_q2_0(const void * vx, const int64_t ib, const int iqs, float2 & v){
     const block_q2_0 * x = (const block_q2_0 *) vx;
 
     const float d = x[ib].d;
 
-    const uint8_t b = x[ib].qs[iqs % (QK2_0 / 4)];
-    const int     p = iqs / (QK2_0 / 4);
+    const int byte_index_0 = iqs       / 4;
+    const int bit_offset_0 = (iqs      % 4) * 2;
 
-    v.x = (b >> (2*p))     & 0x03;
-    v.y = (b >> (2*p + 4)) & 0x03;
+    const int byte_index_1 = (iqs + 1) / 4;
+    const int bit_offset_1 = ((iqs + 1) % 4) * 2;
 
-    v.x = (v.x - 1.0f) * d;
-    v.y = (v.y - 1.0f) * d;
+    const int c0 = (x[ib].qs[byte_index_0] >> bit_offset_0) & 0x3;
+    const int c1 = (x[ib].qs[byte_index_1] >> bit_offset_1) & 0x3;
+
+    v.x = (c0 - 1) * d;
+    v.y = (c1 - 1) * d;
 }
 
 // Standard Q2_0 dequant: (c-2)*d (for Q2_0_B = 53)
