@@ -750,13 +750,23 @@ static const struct ggml_type_traits type_traits[GGML_TYPE_COUNT] = {
         .to_float                 = (ggml_to_float_t) dequantize_row_q3_1,
         .from_float_ref           = (ggml_from_float_t) quantize_row_q3_1_ref,
     },
+    // PrismML/Bonsai ternary 2-bit (on-disk id 42). Named "q2_0_t" so that BeeLlama's own
+    // 2-bit type (id 53, below) keeps its user-visible name and CLI flags unchanged.
     [GGML_TYPE_Q2_0] = {
-        .type_name                = "q2_0",
+        .type_name                = "q2_0_t",
         .blck_size                = QK2_0,
         .type_size                = sizeof(block_q2_0),
         .is_quantized             = true,
         .to_float                 = (ggml_to_float_t) dequantize_row_q2_0,
         .from_float_ref           = (ggml_from_float_t) quantize_row_q2_0_ref,
+    },
+    [GGML_TYPE_Q2_0_B] = {
+        .type_name                = "q2_0",
+        .blck_size                = QK2_0_B,
+        .type_size                = sizeof(block_q2_0_b),
+        .is_quantized             = true,
+        .to_float                 = (ggml_to_float_t) dequantize_row_q2_0_b,
+        .from_float_ref           = (ggml_from_float_t) quantize_row_q2_0_b_ref,
     },
 
     [GGML_TYPE_Q2_1] = {

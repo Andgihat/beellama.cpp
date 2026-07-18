@@ -575,10 +575,10 @@ static __device__ __forceinline__ float vec_dot_fattn_vec_KQ_q3_1(
 }
 
 template<int D, int nthreads>
-static __device__ __forceinline__ float vec_dot_fattn_vec_KQ_q2_0(
+static __device__ __forceinline__ float vec_dot_fattn_vec_KQ_q2_0_b(
     const char * __restrict__ K_c, const void * __restrict__ Q_v, const int * __restrict__ Q_q8, const void * __restrict__ Q_ds_v) {
 
-    const block_q2_0 * K_q2_0 = (const block_q2_0 *) K_c;
+    const block_q2_0_b * K_q2_0 = (const block_q2_0_b *) K_c;
     GGML_UNUSED(Q_v);
 
     float sum = 0.0f;
@@ -1440,13 +1440,13 @@ static __device__ __forceinline__ void dequantize_V_q3_1(const void * __restrict
 }
 
 template <typename T, int ne>
-static __device__ __forceinline__ void dequantize_V_q2_0(const void * __restrict__ vx, void * __restrict__ dst, const int64_t i0) {
-    const block_q2_0 * x = (const block_q2_0 *) vx;
+static __device__ __forceinline__ void dequantize_V_q2_0_b(const void * __restrict__ vx, void * __restrict__ dst, const int64_t i0) {
+    const block_q2_0_b * x = (const block_q2_0_b *) vx;
 
-    const int64_t ib  = i0 / QK2_0;
-    const int     idq = i0 % QK2_0;
-    const int     jb  = idq % (QK2_0/4);
-    const int     p   = idq / (QK2_0/4);
+    const int64_t ib  = i0 / QK2_0_B;
+    const int     idq = i0 % QK2_0_B;
+    const int     jb  = idq % (QK2_0_B/4);
+    const int     p   = idq / (QK2_0_B/4);
 
     int q;
     static_assert(ne == 2 || ne == 4, "bad ne");
@@ -1837,8 +1837,8 @@ constexpr __device__ vec_dot_KQ_t get_vec_dot_KQ() {
         return vec_dot_fattn_vec_KQ_q3_0<D, nthreads>;
     } else if constexpr (type_K == GGML_TYPE_Q3_1) {
         return vec_dot_fattn_vec_KQ_q3_1<D, nthreads>;
-    } else if constexpr (type_K == GGML_TYPE_Q2_0) {
-        return vec_dot_fattn_vec_KQ_q2_0<D, nthreads>;
+    } else if constexpr (type_K == GGML_TYPE_Q2_0_B) {
+        return vec_dot_fattn_vec_KQ_q2_0_b<D, nthreads>;
     } else if constexpr (type_K == GGML_TYPE_Q2_1) {
         return vec_dot_fattn_vec_KQ_q2_1<D, nthreads>;
     } else if constexpr (type_K == GGML_TYPE_Q8_0) {
@@ -1883,8 +1883,8 @@ constexpr __device__ dequantize_V_t get_dequantize_V() {
         return dequantize_V_q3_0<T, ne>;
     } else if constexpr (type_V == GGML_TYPE_Q3_1) {
         return dequantize_V_q3_1<T, ne>;
-    } else if constexpr (type_V == GGML_TYPE_Q2_0) {
-        return dequantize_V_q2_0<T, ne>;
+    } else if constexpr (type_V == GGML_TYPE_Q2_0_B) {
+        return dequantize_V_q2_0_b<T, ne>;
     } else if constexpr (type_V == GGML_TYPE_Q2_1) {
         return dequantize_V_q2_1<T, ne>;
     } else if constexpr (type_V == GGML_TYPE_Q8_0) {

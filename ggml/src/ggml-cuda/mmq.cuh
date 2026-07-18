@@ -69,6 +69,7 @@ static mmq_q8_1_ds_layout mmq_get_q8_1_ds_layout(const ggml_type type_x) {
         case GGML_TYPE_Q6_0:
         case GGML_TYPE_Q3_0:
         case GGML_TYPE_Q2_0:
+        case GGML_TYPE_Q2_0_B:
             return MMQ_Q8_1_DS_LAYOUT_D4;
         case GGML_TYPE_Q5_1:
         case GGML_TYPE_Q6_1:
@@ -207,6 +208,7 @@ static constexpr __host__ __device__ tile_x_sizes mmq_get_dp4a_tile_x_sizes(ggml
         case GGML_TYPE_Q3_0:    return MMQ_DP4A_TXS_Q8_0;
         case GGML_TYPE_Q3_1:    return MMQ_DP4A_TXS_Q8_1;
         case GGML_TYPE_Q2_0:    return MMQ_DP4A_TXS_Q8_0;
+        case GGML_TYPE_Q2_0_B:  return MMQ_DP4A_TXS_Q8_0;
         case GGML_TYPE_Q2_1:    return MMQ_DP4A_TXS_Q8_1;
         case GGML_TYPE_Q8_0:    return MMQ_DP4A_TXS_Q8_0;
         case GGML_TYPE_MXFP4:   return MMQ_DP4A_TXS_Q8_1;
@@ -258,6 +260,7 @@ static constexpr __host__ __device__ int mmq_get_mma_tile_x_k(ggml_type type) {
         case GGML_TYPE_Q3_0:    return MMQ_MMA_TILE_X_K_Q8_0;
         case GGML_TYPE_Q3_1:    return MMQ_MMA_TILE_X_K_Q8_1;
         case GGML_TYPE_Q2_0:    return MMQ_MMA_TILE_X_K_Q8_0;
+        case GGML_TYPE_Q2_0_B:  return MMQ_MMA_TILE_X_K_Q8_0;
         case GGML_TYPE_Q2_1:    return MMQ_MMA_TILE_X_K_Q8_1;
         case GGML_TYPE_Q8_0:    return MMQ_MMA_TILE_X_K_Q8_0;
         // tile sizes are the same for Q8_1 and FP4 for blackwell
@@ -1069,8 +1072,8 @@ template <int mmq_y, bool need_check, ggml_type type, int offset> static __devic
             const block_q3_1 * b = (const block_q3_1 *) x + ibx;
             v = get_int_b4(b->qs, kqsx);
             h = get_int_b4(b->qh, 0) >> (4*kqsx);
-        } else if (type == GGML_TYPE_Q2_0) {
-            const block_q2_0 * b = (const block_q2_0 *) x + ibx;
+        } else if (type == GGML_TYPE_Q2_0_B) {
+            const block_q2_0_b * b = (const block_q2_0_b *) x + ibx;
             v = get_int_b2(b->qs, kqsx);
         } else {
             const block_q2_1 * b = (const block_q2_1 *) x + ibx;
@@ -3702,6 +3705,14 @@ struct mmq_type_traits<mmq_x, mmq_y, need_check, GGML_TYPE_Q2_0> {
 };
 
 template <int mmq_x, int mmq_y, bool need_check>
+struct mmq_type_traits<mmq_x, mmq_y, need_check, GGML_TYPE_Q2_0_B> {
+    static constexpr int              vdr          = VDR_Q2_0_B_Q8_1_MMQ;
+    static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q2plane<mmq_y, need_check, GGML_TYPE_Q2_0_B, 2>;
+    static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q8_0_q8_1_mma<mmq_x, mmq_y, MMQ_Q8_1_DS_LAYOUT_D4>;
+    static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q8_0_q8_1_dp4a<mmq_x, mmq_y>;
+};
+
+template <int mmq_x, int mmq_y, bool need_check>
 struct mmq_type_traits<mmq_x, mmq_y, need_check, GGML_TYPE_Q2_1> {
     static constexpr int              vdr          = VDR_Q2_1_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q2plane<mmq_y, need_check, GGML_TYPE_Q2_1, 0>;
@@ -4553,6 +4564,7 @@ extern DECL_MMQ_CASE(GGML_TYPE_Q6_1);
 extern DECL_MMQ_CASE(GGML_TYPE_Q3_0);
 extern DECL_MMQ_CASE(GGML_TYPE_Q3_1);
 extern DECL_MMQ_CASE(GGML_TYPE_Q2_0);
+extern DECL_MMQ_CASE(GGML_TYPE_Q2_0_B);
 extern DECL_MMQ_CASE(GGML_TYPE_Q2_1);
 extern DECL_MMQ_CASE(GGML_TYPE_Q8_0);
 extern DECL_MMQ_CASE(GGML_TYPE_MXFP4);

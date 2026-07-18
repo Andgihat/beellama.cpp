@@ -131,6 +131,10 @@ typedef sycl::half2 ggml_half2;
 #define QI2_0 (QK2_0 / 32)
 #define QR2_0 1
 
+// BeeLlama native Q2_0 (type 53) — planar 2-bit, unrelated to the ternary type above
+#define QI2_0_B (QK2_0_B / (4 * QR2_0_B))
+#define QR2_0_B 4
+
 #define QI2_1 (QK2_1 / (4 * QR2_1))
 #define QR2_1 4
 
@@ -312,6 +316,15 @@ typedef struct {
     uint8_t   qs[QK2_0 / 4]; // quants, two bits each
 } block_q2_0;
 static_assert(sizeof(block_q2_0) == sizeof(ggml_half) + QK2_0 / 4, "wrong q2_0 block size/padding");
+
+// BeeLlama native 2-bit (type 53): 2-bit planes in qs (byte j holds elements j, j+8, j+16, j+24).
+// Kept alongside the ternary Q2_0 above so existing BeeLlama models still load.
+#define QK2_0_B 32
+typedef struct {
+    ggml_half d;               // delta
+    uint8_t   qs[QK2_0_B / 4]; // quants, two bits each
+} block_q2_0_b;
+static_assert(sizeof(block_q2_0_b) == sizeof(ggml_half) + QK2_0_B / 4, "wrong q2_0_b block size/padding");
 
 #define QK2_1 32
 typedef struct {

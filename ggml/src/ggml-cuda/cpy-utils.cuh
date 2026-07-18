@@ -288,11 +288,13 @@ static __device__ void quantize_f32_q3_1_block(const float * __restrict__ x, blo
     memcpy(y->qh, &qh, sizeof(qh));
 }
 
-static __device__ void quantize_f32_q2_0_block(const float * __restrict__ x, block_q2_0 * __restrict__ y) {
+// Quantizes into BeeLlama's native planar Q2_0 (type 53). The ternary Q2_0 (type 42) is a
+// weight-only format produced offline by PrismML and has no runtime quantizer.
+static __device__ void quantize_f32_q2_0_b_block(const float * __restrict__ x, block_q2_0_b * __restrict__ y) {
     float amax = 0.0f;
     float vmax = 0.0f;
 
-    for (int j = 0; j < QK2_0; ++j) {
+    for (int j = 0; j < QK2_0_B; ++j) {
         const float v = x[j];
         if (amax < fabsf(v)) {
             amax = fabsf(v);
@@ -306,16 +308,16 @@ static __device__ void quantize_f32_q2_0_block(const float * __restrict__ x, blo
     y->d = d;
 
 #pragma unroll
-    for (int j = 0; j < QK2_0 / 4; ++j) {
+    for (int j = 0; j < QK2_0_B / 4; ++j) {
         y->qs[j] = 0;
     }
 
-    for (int j = 0; j < QK2_0; ++j) {
+    for (int j = 0; j < QK2_0_B; ++j) {
         const float x0 = x[j]*id;
 
         const uint8_t xi0 = min(3, (int8_t)(x0 + 2.5f));
 
-        y->qs[j % (QK2_0/4)] |= (xi0 & 0x03) << (2*(j / (QK2_0/4)));
+        y->qs[j % (QK2_0_B/4)] |= (xi0 & 0x03) << (2*(j / (QK2_0_B/4)));
     }
 }
 
@@ -434,8 +436,8 @@ static __device__ void cpy_blck_f32_q3_1(const char * cxi, char * cdsti) {
     quantize_f32_q3_1_block((const float *)cxi, (block_q3_1 *)cdsti);
 }
 
-static __device__ void cpy_blck_f32_q2_0(const char * cxi, char * cdsti) {
-    quantize_f32_q2_0_block((const float *)cxi, (block_q2_0 *)cdsti);
+static __device__ void cpy_blck_f32_q2_0_b(const char * cxi, char * cdsti) {
+    quantize_f32_q2_0_b_block((const float *)cxi, (block_q2_0_b *)cdsti);
 }
 
 static __device__ void cpy_blck_f32_q2_1(const char * cxi, char * cdsti) {

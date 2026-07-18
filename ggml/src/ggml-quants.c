@@ -456,6 +456,43 @@ void quantize_row_q2_0_ref(const float * GGML_RESTRICT x, block_q2_0 * GGML_REST
     }
 }
 
+// BeeLlama native planar 2-bit (type 53) reference quantizer, unchanged from upstream.
+void quantize_row_q2_0_b_ref(const float * GGML_RESTRICT x, block_q2_0_b * GGML_RESTRICT y, int64_t k) {
+    static const int qk = QK2_0_B;
+
+    assert(k % qk == 0);
+
+    const int nb = k / qk;
+
+    for (int i = 0; i < nb; i++) {
+        float amax = 0.0f; // absolute max
+        float max  = 0.0f;
+
+        for (int j = 0; j < qk; j++) {
+            const float v = x[i*qk + j];
+            if (amax < fabsf(v)) {
+                amax = fabsf(v);
+                max  = v;
+            }
+        }
+
+        const float d  = max / -2;
+        const float id = d ? 1.0f/d : 0.0f;
+
+        y[i].d = GGML_FP32_TO_FP16(d);
+
+        memset(y[i].qs, 0, sizeof(y[i].qs));
+
+        for (int j = 0; j < qk; ++j) {
+            const float x0 = x[i*qk + j]*id;
+
+            const uint8_t xi0 = MIN(3, (int8_t)(x0 + 2.5f));
+
+            y[i].qs[j % (qk/4)] |= (xi0 & 0x03) << (2*(j / (qk/4)));
+        }
+    }
+}
+
 void quantize_row_q2_1_ref(const float * GGML_RESTRICT x, block_q2_1 * GGML_RESTRICT y, int64_t k) {
     static const int qk = QK2_1;
 
@@ -858,8 +895,8 @@ void dequantize_row_q2_0(const block_q2_0 * GGML_RESTRICT x, float * GGML_RESTRI
     }
 }
 
-void dequantize_row_q2_0_ternary(const block_q2_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
-    static const int qk = QK2_0;
+void dequantize_row_q2_0_b(const block_q2_0_b * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
+    static const int qk = QK2_0_B;
 
     assert(k % qk == 0);
 
@@ -871,7 +908,7 @@ void dequantize_row_q2_0_ternary(const block_q2_0 * GGML_RESTRICT x, float * GGM
         for (int j = 0; j < qk; ++j) {
             const int32_t q = (x[i].qs[j % (qk/4)] >> (2*(j / (qk/4)))) & 0x03;
 
-            y[i*qk + j] = (q - 1)*d;
+            y[i*qk + j] = (q - 2)*d;
         }
     }
 }

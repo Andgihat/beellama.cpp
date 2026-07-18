@@ -494,9 +494,9 @@ static void set_rows_cuda(ggml_backend_cuda_context & ctx, const ggml_tensor * s
             nb1, nb2, nb3,
             stream
         );
-    } else if (dst->type == GGML_TYPE_Q2_0) {
-        set_rows_cuda_quant<idx_t, block_q2_0, QK2_0, quantize_f32_q2_0_block>(
-            src0_d, src1_d, (block_q2_0*)dst->data,
+    } else if (dst->type == GGML_TYPE_Q2_0_B) {
+        set_rows_cuda_quant<idx_t, block_q2_0_b, QK2_0_B, quantize_f32_q2_0_b_block>(
+            src0_d, src1_d, (block_q2_0_b*)dst->data,
             ne00, ne01, ne02, ne03,
             ne10, ne11, ne12, ne13,
             nb01, nb02, nb03,

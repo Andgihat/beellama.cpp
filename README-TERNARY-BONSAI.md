@@ -11,22 +11,35 @@ headroom. With `turbo3` KV it leaves ~5.4 GB, and **384K context fits more comfo
 
 ---
 
-## ⚠️ Work in progress: BeeLlama's own `Q2_0` (type 53) is currently broken
+## Two 2-bit types, side by side
 
-This fork **replaces** BeeLlama's native `Q2_0` instead of coexisting with it. Both formats
-are called "Q2_0" but they are **not compatible**:
+Both projects ship a type called "Q2_0" and they are **not compatible**:
 
-| | block size | bytes/block | bit layout |
-|---|---:|---:|---|
-| BeeLlama native `Q2_0` | 32 | 10 | planar — byte `j` holds elements `j, j+8, j+16, j+24` |
-| PrismML Bonsai `Q2_0` | 128 | 34 | sequential — element `i` at byte `i/4`, bits `(i%4)*2` |
+| | on-disk id | block size | bytes/block | bit layout |
+|---|---:|---:|---:|---|
+| BeeLlama native `Q2_0` | 53 | 32 | 10 | planar — byte `j` holds elements `j, j+8, j+16, j+24` |
+| PrismML Bonsai `Q2_0` | 42 | 128 | 34 | sequential — element `i` at byte `i/4`, bits `(i%4)*2` |
 
-**If you have a model in BeeLlama's native `Q2_0` format, do not use this build yet** — it
-will produce garbage, silently, with no error. Every other quantization type is untouched
-and works normally.
+Since v0.3.3 they **coexist**, so this is a drop-in replacement for upstream BeeLlama:
 
-Splitting these into two coexisting types (`Q2_0` = 42 ternary, `Q2_0_B` = 53 native) is in
-progress and will land as a follow-up commit and a second release.
+* BeeLlama's own type keeps id 53 **and its user-visible name `q2_0`** — existing models and
+  existing command lines (`-ctk q2_0`, `-ctk kvarn2`, …) behave exactly as before.
+* The ternary type takes id 42 and is displayed as `q2_0_t`.
+
+The two have different capabilities, which follows from the formats themselves:
+
+| | weights | KV cache |
+|---|---|---|
+| `q2_0` (53) | yes | yes |
+| `q2_0_t` (42) | yes | **no** |
+
+The ternary format is produced offline by PrismML's quantizer and has no runtime encoder, so
+it cannot back a KV cache. Asking for a 2-bit KV cache gives you the native planar type, as
+it always did.
+
+**Note on the earlier v0.3.2 release:** it replaced type 53 rather than coexisting with it,
+which silently broke both native `Q2_0` models and 2-bit KV cache options. If you are on
+v0.3.2, upgrade.
 
 ---
 
