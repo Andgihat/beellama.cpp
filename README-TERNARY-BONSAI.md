@@ -112,6 +112,53 @@ llama-server -m Ternary-Bonsai-27B-Q2_0.gguf \
 
 Other KV types available: `turbo2/3/4`, `turbo2/3/4_tcq`, `kvarn2/3/4/5`.
 
+### Speculative decoding — the stock Qwen3.6-27B DFlash head works
+
+A DFlash drafter trained for **plain Qwen3.6-27B accelerates Ternary Bonsai as well**. The
+head is tied to the architecture, not to the target's quantization: it carries no
+`token_embd` / `output` tensors (those are shared from the target at runtime) and
+cross-attends to the target's hidden states.
+
+```
+dflash: contract ok: block_size=16 target_layer_ids=[1,16,31,46,61] n_embd=5120
+dflash: target_vocab=248320 drafter_vocab=248320 vocab_match=1
+```
+
+**Set `--spec-draft-n-max 3` explicitly.** DFlash's adaptive controller settles on `n_max=15`,
+which is tuned for ordinary quants that accept ~30% of drafted tokens. Bonsai is a much
+coarser approximation of the model the head was trained on, so acceptance falls and long
+draft blocks are mostly wasted work:
+
+| `--spec-draft-n-max` | decode | acceptance |
+|---:|---:|---:|
+| 2 | 62.5 t/s | 69.4% |
+| **3** | **64.4 t/s** | **63.1%** |
+| 4 | 60.3 t/s | 52.6% |
+| 5 | 54.5 t/s | 42.3% |
+| 6 | 52.9 t/s | 40.5% |
+| 8 | 55.7 t/s | 34.4% |
+| 10 | 55.5 t/s | 24.5% |
+| 15 (adaptive default) | 51.3 t/s | 15.1% |
+
+Baseline without a drafter: **47.4 t/s**. So `n_max=3` is **+36%**, while leaving the
+controller to its own devices gives only +8%. Note that 3 is simply llama.cpp's own default
+for the flag — the DFlash controller overrides it.
+
+```bash
+llama-server -m Ternary-Bonsai-27B-Q2_0.gguf \
+  --spec-draft-model Qwen3.6-27B-DFlash-Q4_K_M.gguf \
+  --spec-type dflash --spec-draft-n-max 3 \
+  --spec-dflash-cross-ctx 512 --spec-draft-ngl all \
+  --ctx-size 32768 --n-gpu-layers 999 --flash-attn on \
+  --cache-type-k turbo3 --cache-type-v turbo3 \
+  --temp 0.7 --top-p 0.95 --top-k 20 --jinja
+```
+
+Measured at 32K context with a short prompt and greedy decoding, on one card and one drafter.
+Acceptance normally drops as context grows, which would push the optimum shorter still; that
+was not measured. Between `n_max` 5 and 8 the ordering is within run-to-run noise (~3 t/s) —
+the peak at 2-4 is not.
+
 ### Build
 
 ```bash
@@ -126,10 +173,8 @@ cmake --build build --config Release -j
 
 ## Not supported
 
-- **DFlash / speculative decoding for Bonsai.** Drafters are target-specific — each one only
-  accelerates the exact model it was trained against. The only drafter that exists for
-  Ternary Bonsai is PrismML's own DSpark head, and Bonsai has no built-in MTP tensors
-  (`n_layer == n_layer_all == 64`). Heads trained for stock Qwen3.6 will not work.
+- **MTP speculation for Bonsai.** The model has no built-in MTP tensors
+  (`n_layer == n_layer_all == 64`). Use a DFlash drafter instead — see above.
 - **2-bit KV cache for the ternary type.** It has no runtime encoder; `-ctk q2_0` uses the
   native planar type instead.
 
