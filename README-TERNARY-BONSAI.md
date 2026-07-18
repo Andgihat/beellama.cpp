@@ -9,8 +9,10 @@ compression** — which the upstream PrismML fork does not have.
 headroom. With `turbo3` KV it leaves ~5.4 GB, and **384K context fits more comfortably than
 192K used to**.
 
-**Base:** BeeLlama `preview-v0.3.2` (commit [`a620cbd`](https://github.com/Anbeeld/beellama.cpp/commit/a620cbd481d16d3ccb5c8c96fa2fbd70191bea38), 17 Jun 2026). Release
-numbers here are this fork's own and do not correspond to upstream versions.
+**Base:** BeeLlama `preview-v0.3.2` (commit [`a620cbd`](https://github.com/Anbeeld/beellama.cpp/commit/a620cbd481d16d3ccb5c8c96fa2fbd70191bea38), 17 Jun 2026).
+Releases here are tagged `v0.3.2-ternary-bonsai[.N]`: the version names the upstream base it
+was built from, the suffix counts revisions of this fork. Upstream version numbers belong to
+Anbeeld and are not claimed here.
 
 ---
 
@@ -23,7 +25,7 @@ Both projects ship a type called "Q2_0" and they are **not compatible**:
 | BeeLlama native `Q2_0` | 53 | 32 | 10 | planar — byte `j` holds elements `j, j+8, j+16, j+24` |
 | PrismML Bonsai `Q2_0` | 42 | 128 | 34 | sequential — element `i` at byte `i/4`, bits `(i%4)*2` |
 
-Since v0.3.3 they **coexist**, so this is a drop-in replacement for upstream BeeLlama:
+Since `.2` they **coexist**, so this is a drop-in replacement for upstream BeeLlama:
 
 * BeeLlama's own type keeps id 53 **and its user-visible name `q2_0`** — existing models and
   existing command lines (`-ctk q2_0`, `-ctk kvarn2`, …) behave exactly as before.
@@ -40,9 +42,9 @@ The ternary format is produced offline by PrismML's quantizer and has no runtime
 it cannot back a KV cache. Asking for a 2-bit KV cache gives you the native planar type, as
 it always did.
 
-**Note on the earlier v0.3.2 release:** it replaced type 53 rather than coexisting with it,
+**Note on the first release (`v0.3.2-ternary-bonsai`):** it replaced type 53 rather than coexisting with it,
 which silently broke both native `Q2_0` models and 2-bit KV cache options. If you are on
-v0.3.2, upgrade.
+that release, upgrade.
 
 ---
 
@@ -128,7 +130,8 @@ cmake --build build --config Release -j
   accelerates the exact model it was trained against. The only drafter that exists for
   Ternary Bonsai is PrismML's own DSpark head, and Bonsai has no built-in MTP tensors
   (`n_layer == n_layer_all == 64`). Heads trained for stock Qwen3.6 will not work.
-- BeeLlama's native `Q2_0` — see the warning above.
+- **2-bit KV cache for the ternary type.** It has no runtime encoder; `-ctk q2_0` uses the
+  native planar type instead.
 
 ---
 
@@ -151,6 +154,10 @@ and silently produce garbage.
 | `ggml-cuda/mmq.cuh` | `load_tiles_q2_0` + traits (this is the prefill path) |
 | `ggml-cpu/quants.c` | `quantize_row_q2_0`, `ggml_vec_dot_q2_0_q8_0_generic` |
 | `ggml-quants.c` | `quantize_row_q2_0_ref`, `dequantize_row_q2_0` |
+
+The follow-up release splits the two formats apart, giving BeeLlama's native type back its
+own id (53), name (`q2_0`), CPU and CUDA kernels, KV-cache encoder and flash-attention
+instances, while the ternary type keeps id 42 and the weight-only path above.
 
 All implementations are taken verbatim from
 [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp). The MMQ infrastructure of
