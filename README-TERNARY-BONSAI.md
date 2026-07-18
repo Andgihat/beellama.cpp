@@ -9,6 +9,9 @@ compression** — which the upstream PrismML fork does not have.
 headroom. With `turbo3` KV it leaves ~5.4 GB, and **384K context fits more comfortably than
 192K used to**.
 
+**Base:** BeeLlama `preview-v0.3.2` (commit [`a620cbd`](https://github.com/Anbeeld/beellama.cpp/commit/a620cbd481d16d3ccb5c8c96fa2fbd70191bea38), 17 Jun 2026). Release
+numbers here are this fork's own and do not correspond to upstream versions.
+
 ---
 
 ## Two 2-bit types, side by side
