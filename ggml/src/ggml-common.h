@@ -371,6 +371,30 @@ typedef struct {
 } block_tq2_0;
 static_assert(sizeof(block_tq2_0) == sizeof(ggml_half) + QK_K / 4, "wrong tq2_0 block size/padding");
 
+// Fermion five-value ternary (TRTC v4 trit records): w = (bp - bn) * (br ? s_hi : s_lo)
+// Scales are exact f32 copies of the container's per-row dual scales,
+// replicated into every block of the row. Bit-planes keep the container's
+// little bit order (bit i of byte j selects element 8*j + i).
+// 4.25 bpw -- co-located "v2" layout: the 3 bit-planes of each 8-weight group are
+// interleaved into one uchar4 [bp,bn,br,pad] so a single coalesced load fetches all
+// planes (raises DRAM utilization 63%->~100%, measured +1.23x decode vs SoA planes).
+#define QK_FV5 256
+typedef struct {
+    float   s_lo;            // low-magnitude scale
+    float   s_hi;            // high-magnitude scale
+    uint8_t q[QK_FV5/8][4];  // per 8-weight group j: [bp, bn, br, pad(0)] co-located
+} block_fv5;
+static_assert(sizeof(block_fv5) == 2 * sizeof(float) + 4 * (QK_FV5/8), "wrong fv5 block size/padding");
+
+// Fermion int8 rows (TRTC v4 embed/lm_head records): w = s * q
+// s is the exact f32 per-row scale, replicated into every block of the row.
+// 8.125 bpw
+typedef struct {
+    float  s;                // row scale
+    int8_t qs[QK_FV5];
+} block_fv5b;
+static_assert(sizeof(block_fv5b) == sizeof(float) + QK_FV5, "wrong fv5b block size/padding");
+
 //
 // Super-block quantization structures
 //

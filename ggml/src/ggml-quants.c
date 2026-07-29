@@ -2906,6 +2906,43 @@ void dequantize_row_tq2_0(const block_tq2_0 * GGML_RESTRICT x, float * GGML_REST
     }
 }
 
+// ====================== Fermion five-value ternary (FV5 / FV5B)
+//
+// FV5 blocks are produced offline by the TRTC v4 -> GGUF converter; there is
+// no float -> FV5 quantizer here on purpose (the container is the source of
+// truth). Reconstruction semantics match the container exactly:
+//   w[j] = (bp[j] - bn[j]) * (br[j] ? s_hi : s_lo)   (all f32)
+
+void dequantize_row_fv5(const block_fv5 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
+    assert(k % QK_FV5 == 0);
+    const int64_t nb = k / QK_FV5;
+
+    for (int64_t i = 0; i < nb; ++i) {
+        const float s_lo = x[i].s_lo;
+        const float s_hi = x[i].s_hi;
+
+        for (int j = 0; j < QK_FV5; ++j) {
+            const int     byte = j >> 3;
+            const uint8_t bit  = 1u << (j & 7);
+            const int sign = ((x[i].q[byte][0] & bit) ? 1 : 0) - ((x[i].q[byte][1] & bit) ? 1 : 0);
+            const float mag = (x[i].q[byte][2] & bit) ? s_hi : s_lo;
+            y[i*QK_FV5 + j] = (float) sign * mag;
+        }
+    }
+}
+
+void dequantize_row_fv5b(const block_fv5b * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
+    assert(k % QK_FV5 == 0);
+    const int64_t nb = k / QK_FV5;
+
+    for (int64_t i = 0; i < nb; ++i) {
+        const float s = x[i].s;
+        for (int j = 0; j < QK_FV5; ++j) {
+            y[i*QK_FV5 + j] = s * (float) x[i].qs[j];
+        }
+    }
+}
+
 // ====================== "True" 2-bit (de)-quantization
 
 void dequantize_row_iq2_xxs(const block_iq2_xxs * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
@@ -6050,6 +6087,35 @@ bool ggml_validate_row_data(enum ggml_type type, const void * data, size_t nbyte
         case GGML_TYPE_TQ2_0:
             {
                 VALIDATE_ROW_DATA_D_F16_IMPL(block_tq2_0, data, nb);
+            } break;
+        case GGML_TYPE_FV5:
+            {
+                const block_fv5 * q = (const block_fv5 *) data;
+                for (size_t i = 0; i < nb; ++i) {
+                    if (!validate_float(q[i].s_lo, i) || !validate_float(q[i].s_hi, i)) {
+                        return false;
+                    }
+                    for (int j = 0; j < QK_FV5/8; ++j) {
+                        const uint8_t bp = q[i].q[j][0], bn = q[i].q[j][1], br = q[i].q[j][2];
+                        if (bp & bn) {
+                            fprintf(stderr, "%s: fv5 invariant bp&bn != 0 at block %zu byte %d\n", __func__, i, j);
+                            return false;
+                        }
+                        if (br & ~(bp | bn)) {
+                            fprintf(stderr, "%s: fv5 invariant br outside bp|bn at block %zu byte %d\n", __func__, i, j);
+                            return false;
+                        }
+                    }
+                }
+            } break;
+        case GGML_TYPE_FV5B:
+            {
+                const block_fv5b * q = (const block_fv5b *) data;
+                for (size_t i = 0; i < nb; ++i) {
+                    if (!validate_float(q[i].s, i)) {
+                        return false;
+                    }
+                }
             } break;
         case GGML_TYPE_IQ1_S:
             {
