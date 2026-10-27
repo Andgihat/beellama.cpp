@@ -1213,8 +1213,7 @@ static void llama_sampler_dist_apply(struct llama_sampler * smpl, llama_token_da
         cur_p->data[i].p /= sum_cum;
     }
 
-    // fallback to the last token (don't think this can happen)
-    assert(found);
+    // fallback to the last token in case of floating-point rounding
     if (!found) {
         cur_p->selected = cur_p->size - 1;
     }

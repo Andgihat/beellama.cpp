@@ -115,7 +115,7 @@ private:
 };
 
 // Helper function for decoding an image whose embeddings have already been calculated
-int32_t mtmd_helper_decode_image_chunk(
+int32_t mtmd_helper_decode_image_chunk_with_decoder(
         mtmd_context * ctx,
         struct llama_context * lctx,
         const mtmd_input_chunk * chunk,
@@ -125,7 +125,7 @@ int32_t mtmd_helper_decode_image_chunk(
         int32_t n_batch,
         llama_pos * new_n_past,
         mtmd_helper_post_decode_callback callback,
-        void * user_data) {
+        void * user_data, mtmd_helper_decode_callback decoder) {
     GGML_ASSERT(n_batch > 0);
     auto chunk_type = mtmd_input_chunk_get_type(chunk);
     const char * name = chunk_type == MTMD_INPUT_CHUNK_TYPE_IMAGE ? "image" : "audio";
@@ -173,7 +173,17 @@ int32_t mtmd_helper_decode_image_chunk(
         LOG_INF("decoding %s batch %d/%d, n_tokens_batch = %d\n", name, i_batch+1, n_img_batches, n_tokens_batch);
 
         int64_t t1 = ggml_time_ms();
-        int32_t ret = llama_process(lctx, LLAMA_PROCESS_TYPE_DECODE, batch_embd.render(lctx, pos_offset, n_tokens_batch));
+        llama_batch_ext * batch_rendered = batch_embd.render(lctx, pos_offset, n_tokens_batch);
+        int32_t ret = 0;
+        if (decoder) {
+            llama_batch b {};
+            b.n_tokens = n_tokens_batch;
+            b.embd = const_cast<float *>(encoded_embd + (size_t) pos_offset * n_mmproj_embd);
+            b.pos = batch_embd.pos.data() + pos_offset;
+            ret = decoder(lctx, b, user_data);
+        } else {
+            ret = llama_process(lctx, LLAMA_PROCESS_TYPE_DECODE, batch_rendered);
+        }
         if (ret != 0) {
             LOG_ERR("failed to decode %s\n", name);
             return ret;
@@ -197,6 +207,14 @@ int32_t mtmd_helper_decode_image_chunk(
     *new_n_past = n_past;
 
     return 0;
+}
+
+int32_t mtmd_helper_decode_image_chunk(
+        mtmd_context * ctx, llama_context * lctx, const mtmd_input_chunk * chunk,
+        float * encoded_embd, llama_pos n_past, llama_seq_id seq_id, int32_t n_batch,
+        llama_pos * new_n_past, mtmd_helper_post_decode_callback callback, void * user_data) {
+    return mtmd_helper_decode_image_chunk_with_decoder(ctx, lctx, chunk, encoded_embd,
+            n_past, seq_id, n_batch, new_n_past, callback, user_data, nullptr);
 }
 
 int32_t mtmd_helper_eval_chunk_single(mtmd_context * ctx,

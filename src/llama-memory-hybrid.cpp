@@ -34,7 +34,8 @@ llama_memory_hybrid::llama_memory_hybrid(
                  uint32_t   tail_tokens,
                 ggml_type   tail_type,
                  uint32_t   tail_tokens_requested,
-                 uint32_t   tail_rollback_tokens) :
+                 uint32_t   tail_rollback_tokens,
+                     bool   replay) :
     hparams(model.hparams),
     mem_attn(new llama_kv_cache(
         model,
@@ -72,7 +73,8 @@ llama_memory_hybrid::llama_memory_hybrid(
         n_rs_seq,
         filter_recr == nullptr ?
             [&](int32_t il) { return hparams.is_recr(il); }
-            : filter_recr
+            : filter_recr,
+        replay
     )) {}
 
 llama_memory_hybrid::llama_memory_hybrid(

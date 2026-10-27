@@ -65,6 +65,8 @@ struct llama_ubatch {
         std::vector<llama_token>    token;
         std::vector<float>          embd;
         std::vector<float>          embd_state;
+        std::vector<float>          embd_nextn;
+        std::vector<llama_pos>      logical_pos;
         std::vector<llama_pos>      pos;
         std::vector<int32_t>        n_seq_id;
         std::vector<llama_seq_id *> seq_id;      // these point into the seq_id_data below
@@ -80,6 +82,8 @@ struct llama_ubatch {
 
     // the llama_ubatch pointers above point to this data if set. otherwise - point to external non-owning data
     std::shared_ptr<data_t> data;
+    llama_pos * logical_pos = nullptr;
+    float * embd_nextn = nullptr;
 };
 
 // crash if a mixed ubatch reaches code that expects only tokens or only embd
@@ -118,6 +122,7 @@ struct llama_batch_ext {
         int32_t      decision_order = 0; // see llama_batch_ext_set_decision_order()
         std::unordered_set<llama_seq_id> seq_ids;
         std::array<llama_pos, GGML_MROPE_SECTIONS> pos = {0, 0, 0, 0};
+        llama_pos    logical_pos = -1;
     };
     std::vector<token> tokens;
     std::vector<float> embd;
@@ -226,6 +231,7 @@ private:
     std::vector<float>          state_vec;    // owned state embeddings built from llama_batch_ext, llama_batch has no slot for them
     std::vector<llama_seq_id>   seq_id_data;  // flat storage for seq_id pointers below
 
+    std::vector<llama_pos>      logical_pos;
     std::vector<llama_pos>      pos;
     std::vector<int32_t>        n_seq_id;
     std::vector<llama_seq_id *> seq_id;

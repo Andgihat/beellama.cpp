@@ -471,6 +471,8 @@ extern "C" {
     //       express this as a backend registry functionality instead
     GGML_API ggml_backend_dev_t ggml_backend_meta_device(
         ggml_backend_dev_t * devs, size_t n_devs, ggml_backend_meta_get_split_state_t get_split_state, void * get_split_state_ud);
+    GGML_API size_t ggml_backend_meta_device_count(ggml_backend_dev_t meta_dev);
+    GGML_API ggml_backend_dev_t ggml_backend_meta_device_get(ggml_backend_dev_t meta_dev, size_t index);
 
     // Introspection for capability planning by users of a meta device. This
     // deliberately exposes devices, not buffer internals, so callers can

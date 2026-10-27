@@ -314,6 +314,10 @@ extern "C" {
         int32_t      *  n_seq_id;
         llama_seq_id ** seq_id;
         int8_t       *  logits;   // TODO: rename this to "output"
+
+        // Optional borrowed arrays; llama_batch_free does not free these.
+        llama_pos    *  logical_pos; // unique cache row IDs, independent of M-RoPE
+        float        *  embd_nextn;  // previous target hidden rows for MTP
     } llama_batch;
 
     enum llama_model_kv_override_type {
@@ -1297,6 +1301,8 @@ extern "C" {
     // For M-RoPE models:
     //     - Embedding tokens must have n_pos_per_embd positions per token, in order [t, y, x, z]; t is also the KV cache position
     //     - Text token only requires one single position per token
+    LLAMA_API bool llama_batch_ext_set_logical_pos(struct llama_batch_ext * batch, int32_t idx, llama_pos pos);
+
     LLAMA_API bool llama_batch_ext_set_pos(
                                 struct llama_batch_ext * batch,
                                                int32_t   idx,
